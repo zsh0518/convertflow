@@ -3,3 +3,4 @@ uvicorn~=0.30.5
 pypdf~=4.3.1
 python-multipart
 starlette~=0.37.2
+pdf2image

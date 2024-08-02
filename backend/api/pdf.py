@@ -4,8 +4,10 @@ import tempfile
 import zipfile
 from typing import List
 
+from PIL import Image
 from fastapi import File, UploadFile, Form, HTTPException, APIRouter
 from fastapi.responses import FileResponse
+from pdf2image import convert_from_path
 from pypdf import PdfReader, PdfWriter
 from starlette.background import BackgroundTask
 
@@ -189,3 +191,81 @@ def encrypt_pdf(input_path: str, output_path: str, password: str):
 
     with open(output_path, 'wb') as output_file:
         pdf_writer.write(output_file)
+
+
+@pdf_route.post("/to-images")
+async def pdf_to_images_api(
+        file: UploadFile = File(...),
+        format: str = Form("png"),
+        pages_per_image: int = Form(1),
+        dpi: int = Form(600)  # 添加 DPI 参数
+):
+    if not is_pdf(file):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a PDF")
+
+    if pages_per_image <= 0:
+        raise HTTPException(status_code=400, detail="Pages per image must be a positive integer")
+
+    if format.lower() not in ["png", "jpg", "jpeg", "tiff"]:
+        raise HTTPException(status_code=400, detail="Unsupported image format")
+
+    if dpi <= 0:
+        raise HTTPException(status_code=400, detail="DPI must be a positive integer")
+
+    temp_dir = tempfile.mkdtemp()
+    try:
+        temp_input_path = os.path.join(temp_dir, "input.pdf")
+        with open(temp_input_path, "wb") as temp_file:
+            shutil.copyfileobj(file.file, temp_file)
+
+        output_folder = os.path.join(temp_dir, "output")
+        os.makedirs(output_folder)
+
+        images = convert_pdf_to_images(temp_input_path, output_folder, format, pages_per_image, dpi)
+
+        zip_filename = "pdf_images.zip"
+        zip_path = os.path.join(temp_dir, zip_filename)
+        create_zip(images, zip_path)
+
+        return FileResponse(
+            zip_path,
+            filename=zip_filename,
+            media_type='application/zip',
+            background=BackgroundTask(cleanup_temp_dir, temp_dir)
+        )
+
+    except Exception as e:
+        cleanup_temp_dir(temp_dir)
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+def convert_pdf_to_images(pdf_path: str, output_folder: str, format: str, pages_per_image: int, dpi: int = 600) -> List[
+    str]:
+    images = convert_from_path(pdf_path, dpi=dpi)  # 增加 DPI
+    output_files = []
+
+    for i in range(0, len(images), pages_per_image):
+        combined_image = images[i]
+        if pages_per_image > 1:
+            width = max(img.width for img in images[i:i + pages_per_image])
+            height = sum(img.height for img in images[i:i + pages_per_image])
+            combined_image = Image.new('RGB', (width, height), (255, 255, 255))  # 使用白色背景
+
+            y_offset = 0
+            for img in images[i:i + pages_per_image]:
+                combined_image.paste(img, (0, y_offset))
+                y_offset += img.height
+
+        output_filename = f'page_{i + 1}-{min(i + pages_per_image, len(images))}.{format}'
+        output_path = os.path.join(output_folder, output_filename)
+
+        if format.lower() in ['jpg', 'jpeg']:
+            combined_image.save(output_path, format.upper(), quality=95)  # 提高 JPEG 质量
+        elif format.lower() == 'png':
+            combined_image.save(output_path, format.upper(), compress_level=1)  # 降低 PNG 压缩以提高质量
+        else:
+            combined_image.save(output_path, format.upper())
+
+        output_files.append(output_path)
+
+    return output_files
