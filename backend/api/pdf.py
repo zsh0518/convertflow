@@ -269,3 +269,47 @@ def convert_pdf_to_images(pdf_path: str, output_folder: str, format: str, pages_
         output_files.append(output_path)
 
     return output_files
+
+
+@pdf_route.post("/rotate")
+async def rotate_pdf(
+        file: UploadFile = File(...),
+        angle: int = Form(...)
+):
+    if not is_pdf(file):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a PDF")
+
+    if angle not in [90, 180, 270, 360]:
+        raise HTTPException(status_code=400, detail="Angle must be 90, 180, 270, or 360 degrees")
+
+    temp_dir = tempfile.mkdtemp()
+    try:
+        temp_input_path = os.path.join(temp_dir, "input.pdf")
+        with open(temp_input_path, "wb") as temp_file:
+            shutil.copyfileobj(file.file, temp_file)
+
+        output_path = os.path.join(temp_dir, "rotated.pdf")
+        rotate_pdf_file(temp_input_path, output_path, angle)
+
+        return FileResponse(
+            output_path,
+            filename="rotated.pdf",
+            media_type='application/pdf',
+            background=BackgroundTask(cleanup_temp_dir, temp_dir)
+        )
+
+    except Exception as e:
+        cleanup_temp_dir(temp_dir)
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+def rotate_pdf_file(input_path: str, output_path: str, angle: int):
+    reader = PdfReader(input_path)
+    writer = PdfWriter()
+
+    for page in reader.pages:
+        page.rotate(angle)
+        writer.add_page(page)
+
+    with open(output_path, "wb") as output_file:
+        writer.write(output_file)
