@@ -5,3 +5,5 @@ python-multipart~=0.0.9
 starlette~=0.37.2
 pdf2image~=1.17.0
 reportlab~=4.2.2
+requests~=2.32.3
+rembg~=2.0.57
