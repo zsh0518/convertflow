@@ -1,6 +1,7 @@
 fastapi~=0.112.0
 uvicorn~=0.30.5
 pypdf~=4.3.1
-python-multipart
+python-multipart~=0.0.9
 starlette~=0.37.2
-pdf2image
+pdf2image~=1.17.0
+reportlab~=4.2.2

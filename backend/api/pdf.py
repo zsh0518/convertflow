@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import zipfile
+from enum import Enum
 from typing import List
 
 from PIL import Image
@@ -9,6 +10,9 @@ from fastapi import File, UploadFile, Form, HTTPException, APIRouter
 from fastapi.responses import FileResponse
 from pdf2image import convert_from_path
 from pypdf import PdfReader, PdfWriter
+from reportlab.lib.colors import Color
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
 from starlette.background import BackgroundTask
 
 pdf_route = APIRouter(prefix="/api/pdf")
@@ -313,3 +317,86 @@ def rotate_pdf_file(input_path: str, output_path: str, angle: int):
 
     with open(output_path, "wb") as output_file:
         writer.write(output_file)
+
+
+# 水印密枚举
+class WatermarkDensity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+@pdf_route.post("/add-watermark")
+async def add_watermark_to_pdf(
+        file: UploadFile = File(...),
+        watermark_text: str = Form(...),
+        density: WatermarkDensity = Form(...)
+):
+    if not is_pdf(file):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a PDF")
+
+    temp_dir = tempfile.mkdtemp()
+    try:
+        temp_input_path = os.path.join(temp_dir, "input.pdf")
+        with open(temp_input_path, "wb") as temp_file:
+            shutil.copyfileobj(file.file, temp_file)
+
+        output_path = os.path.join(temp_dir, "watermarked.pdf")
+        add_watermark_to_pdf_file(temp_input_path, output_path, watermark_text, density)
+
+        return FileResponse(
+            output_path,
+            filename="watermarked.pdf",
+            media_type='application/pdf',
+            background=BackgroundTask(cleanup_temp_dir, temp_dir)
+        )
+
+    except Exception as e:
+        cleanup_temp_dir(temp_dir)
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+def add_watermark_to_pdf_file(input_path: str, output_path: str, watermark_text: str, density: WatermarkDensity):
+    reader = PdfReader(input_path)
+    writer = PdfWriter()
+
+    watermark = create_watermark(watermark_text, density)
+    watermark_page = PdfReader(watermark).pages[0]
+
+    for page in reader.pages:
+        page.merge_page(watermark_page)
+        writer.add_page(page)
+
+    with open(output_path, "wb") as output_file:
+        writer.write(output_file)
+
+
+def create_watermark(text: str, density: WatermarkDensity):
+    temp_watermark = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
+    c = canvas.Canvas(temp_watermark.name)
+
+    width, height = 8.5 * inch, 11 * inch  # Assuming letter size
+    c.setPageSize((width, height))
+    c.setFont("Helvetica", 50)
+    # 白色背景，低透明度，不影响 pdf 主体内容
+    c.setFillColor(Color(0, 0, 0, alpha=0.1))
+
+    if density == WatermarkDensity.LOW:
+        positions = [(width / 2, height / 2)]
+    elif density == WatermarkDensity.MEDIUM:
+        positions = [(width / 4, height / 4), (3 * width / 4, height / 4),
+                     (width / 4, 3 * height / 4), (3 * width / 4, 3 * height / 4)]
+    else:  # HIGH
+        positions = [(x, y) for x in range(int(width / 4), int(width), int(width / 4))
+                     for y in range(int(height / 4), int(height), int(height / 4))]
+
+    for x, y in positions:
+        c.saveState()
+        c.translate(x, y)
+        c.rotate(45)
+        c.drawCentredString(0, 0, text)
+        c.restoreState()
+
+    c.save()
+    temp_watermark.close()
+    return temp_watermark.name
