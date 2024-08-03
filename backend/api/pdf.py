@@ -5,6 +5,7 @@ import zipfile
 from enum import Enum
 from typing import List
 
+import pikepdf
 from PIL import Image
 from fastapi import File, UploadFile, Form, HTTPException, APIRouter
 from fastapi.responses import FileResponse
@@ -400,3 +401,40 @@ def create_watermark(text: str, density: WatermarkDensity):
     c.save()
     temp_watermark.close()
     return temp_watermark.name
+
+
+@pdf_route.post("/compress")
+async def compress_pdf(
+        file: UploadFile = File(...),
+        compression_level: int = Form(4, ge=0, le=9)  # 压缩级别，0-3
+):
+    if not is_pdf(file):
+        raise HTTPException(status_code=400, detail="Uploaded file is not a PDF")
+
+    temp_dir = tempfile.mkdtemp()
+    try:
+        temp_input_path = os.path.join(temp_dir, "input.pdf")
+        with open(temp_input_path, "wb") as temp_file:
+            shutil.copyfileobj(file.file, temp_file)
+
+        output_path = os.path.join(temp_dir, "compressed.pdf")
+        with open(output_path, "wb") as f:
+            writer = PdfWriter(clone_from=temp_input_path)
+            # 两种方法的压缩效率不一样，如果是针对图像多的压缩建议通过压缩图像方式减少体积，比如 pdf 电子书
+            # for page in writer.pages:
+            #     page.compress_content_streams(level=compression_level)
+            for page in writer.pages:
+                for img in page.images:
+                    img.replace(img.image, quality=40)
+            writer.write(f)
+
+        return FileResponse(
+            output_path,
+            filename="compressed.pdf",
+            media_type='application/pdf',
+            background=BackgroundTask(cleanup_temp_dir, temp_dir)
+        )
+
+    except Exception as e:
+        cleanup_temp_dir(temp_dir)
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
