@@ -1,6 +1,7 @@
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from starlette.middleware.sessions import SessionMiddleware
 
 from api.file import file_route
 from api.image import image_route
@@ -12,6 +13,9 @@ app.include_router(file_route)
 app.include_router(pdf_route)
 app.include_router(image_route)
 app.include_router(user_route)
+
+# 添加 SessionMiddleware
+app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 
 if __name__ == '__main__':
     load_dotenv()
