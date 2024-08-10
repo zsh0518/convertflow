@@ -9,6 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    - name: Debug - Check SSH key
+      run: |
+        echo "${{ secrets.SERVER_SSH_KEY }}" > debug_key.txt
+        echo "${{ secrets.SERVER_USERNAME }}" > debug_key.txt
+        echo "${{ secrets.SERVER_HOST }}" > debug_key.txt
+        head -n 10 debug_key.txt
+        rm debug_key.txt
     - name: Deploy to private server
       uses: appleboy/ssh-action@master
       with:
