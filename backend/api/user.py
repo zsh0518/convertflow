@@ -6,7 +6,6 @@ from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
 import httpx
-from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from jose import jwt
@@ -65,22 +64,6 @@ class User(Base):
 
 
 Base.metadata.create_all(bind=engine)
-
-# OAuth 设置
-oauth = OAuth()
-oauth.register(
-    name='twitter',
-    client_id=os.getenv('TWITTER_CLIENT_ID'),
-    client_secret=os.getenv('TWITTER_CLIENT_SECRET'),
-    api_base_url='https://api.twitter.com/2/',
-    access_token_url='https://api.twitter.com/2/oauth2/token',
-    authorize_url='https://twitter.com/i/oauth2/authorize',
-    client_kwargs={
-        'scope': 'users.read offline.access',
-        'token_endpoint_auth_method': 'client_secret_post',
-        'code_challenge_method': 'S256'
-    }
-)
 
 
 # Pydantic 模型
