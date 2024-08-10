@@ -5,7 +5,6 @@ import zipfile
 from enum import Enum
 from typing import List
 
-import pikepdf
 from PIL import Image
 from fastapi import File, UploadFile, Form, HTTPException, APIRouter
 from fastapi.responses import FileResponse
