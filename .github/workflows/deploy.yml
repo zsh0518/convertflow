@@ -1,0 +1,43 @@
+name: Deploy to Private Server
+
+on:
+  push:
+    branches: [ main ]  # 触发工作流的分支
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Deploy to private server
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          # 进入项目目录
+          cd /root/workspace/convertflow
+
+          # 拉取最新代码
+          git pull origin main
+
+          # 更新后端依赖
+          cd backend
+          pip install -r requirements.txt
+          
+          # 重启后端服务
+          # 根据您的实际情况修改这个命令
+          sudo systemctl restart your-backend-service
+
+          # 更新前端依赖并构建
+          cd ../frontend
+          pnpm install
+          pnpm build
+
+          # 部署前端
+          # 假设您使用 nginx，并且构建输出在 build 目录
+          sudo cp -r build/* /var/www/your-frontend-path/
+
+          # 如果需要，重新加载 nginx 配置
+          sudo nginx -s reload
