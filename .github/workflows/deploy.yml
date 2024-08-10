@@ -9,35 +9,25 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Debug - Check SSH key
-      run: |
-        echo "${{ secrets.SERVER_SSH_KEY }}" > debug_key.txt
-        echo "${{ secrets.SERVER_USERNAME }}" > debug_key.txt
-        echo "${{ secrets.SERVER_HOST }}" > debug_key.txt
-        head -n 10 debug_key.txt
-        rm debug_key.txt
-    - name: Deploy to private server
+    - name: Deploy to server
       uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.SERVER_HOST }}
-        username: ${{ secrets.SERVER_USERNAME }}
-        key: ${{ secrets.SERVER_SSH_KEY }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          # 进入项目目录
+          # 更新代码仓
           cd /root/workspace/convertflow
-
-          # 拉取最新代码
           git pull origin main
-
-          # 更新后端依赖
+          
+          # 后端部署
           cd backend
           pip install -r requirements.txt
           
-          # 重启后端服务
-          # 根据您的实际情况修改这个命令
-          sudo systemctl restart your-backend-service
+          # 重启您的后端服务,例如:
+          sudo systemctl restart convertflow_backend
 
-          # 更新前端依赖并构建
+          # 前端部署
           cd ../frontend
           pnpm install
           pnpm build
