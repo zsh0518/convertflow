@@ -14,7 +14,7 @@ app.include_router(pdf_route)
 app.include_router(image_route)
 app.include_router(user_route)
 
-# 添加 SessionMiddleware,
+# 添加 SessionMiddleware
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 
 if __name__ == '__main__':
