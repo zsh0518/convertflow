@@ -87,7 +87,7 @@ async def split_pdf_api(file: UploadFile = File(...), pages: int = Form(...)):
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
-@pdf_route.get("/api/pdf/download/{filename}")
+@pdf_route.get("/download/{filename}")
 async def download_file(filename: str):
     file_path = os.path.join("temp", filename)
     if os.path.exists(file_path):
