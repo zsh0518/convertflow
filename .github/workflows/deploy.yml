@@ -34,10 +34,3 @@ jobs:
           cd ../frontend
           pnpm install
           pnpm build
-
-          # 部署前端
-          # 假设您使用 nginx，并且构建输出在 build 目录
-          sudo cp -r build/* /var/www/your-frontend-path/
-
-          # 如果需要，重新加载 nginx 配置
-          sudo nginx -s reload
