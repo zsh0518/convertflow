@@ -6,13 +6,18 @@ import zipfile
 from enum import Enum
 from typing import List
 
+import replicate
 from PIL import ImageDraw, ImageFont, Image
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from dotenv import load_dotenv
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Body
+from pydantic import BaseModel, Field
 from rembg import remove
 from starlette.background import BackgroundTask
 from starlette.responses import FileResponse, StreamingResponse
 
 image_route = APIRouter(prefix="/api/image")
+
+load_dotenv()
 
 
 class JoinDirection(str, Enum):
@@ -196,3 +201,80 @@ async def join_images(
     except Exception as e:
         cleanup_temp_dir(temp_dir)
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+
+@image_route.post("/upscale")
+async def upscale(file: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+        # 将上传的文件内容写入临时文件
+        content = await file.read()
+        temp_file.write(content)
+        temp_file_path = temp_file.name
+
+    try:
+        output = replicate.run(
+            "nightmareai/real-esrgan:f121d640bd286e1fdc67f9799164c1d5be36ff74576ee11c803ae5b665dd46aa",
+            input={
+                "image": open(temp_file_path, "rb"),
+                "scale": 2,
+                "face_enhance": True
+            }
+        )
+        print(output)
+        return {"result": output}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        # 删除临时文件
+        os.unlink(temp_file_path)
+
+
+class AspectRatio(str, Enum):
+    SQUARE = "1:1"
+    WIDESCREEN = "16:9"
+    ULTRAWIDE = "21:9"
+    PORTRAIT = "2:3"
+    LANDSCAPE = "3:2"
+    FOUR_FIVE = "4:5"
+    FIVE_FOUR = "5:4"
+    WIDESCREEN_REVERSED = "9:16"
+    ULTRAWIDE_REVERSED = "9:21"
+
+
+class OutputFormat(str, Enum):
+    PNG = "png"
+    JPEG = "jpeg"
+    WEBP = "webp"
+
+
+class ImageGenerationRequest(BaseModel):
+    prompt: str = Field(..., description="用户输入的提示词")
+    aspect_ratio: AspectRatio = Field(default=AspectRatio.SQUARE, description="图像比例")
+    num_outputs: int = Field(default=1, ge=1, le=4, description="生成图像数量")
+    output_format: OutputFormat = Field(default=OutputFormat.WEBP, description="生成图像格式")
+    output_quality: int = Field(default=90, ge=1, le=100, description="生成图像质量")
+    disable_safety_checker: bool = Field(default=False, description="安全性检查")
+
+
+class ImageGenerationResponse(BaseModel):
+    images: list[str] = Field(..., description="生成的地址列表")
+
+
+@image_route.post("/generate", response_model=ImageGenerationResponse)
+async def generate_image(request: ImageGenerationRequest = Body(...)):
+    # 这里实现图像生成的逻辑
+    # 使用request中的参数调用相应的API或服务
+    output = replicate.run(
+        "black-forest-labs/flux-schnell",
+        input={
+            "prompt": request.prompt,
+            "num_outputs": request.num_outputs,
+            "aspect_ratio": request.aspect_ratio,
+            "output_format": request.output_format,
+            "output_quality": request.output_quality,
+            "disable_safety_checker": request.disable_safety_checker
+        }
+    )
+    # 示例返回值（实际实现时需要替换）
+    print(output)
+    return ImageGenerationResponse(images=output)
