@@ -1,15 +1,13 @@
-"use client"
+"use client";
 
-import React from 'react';
-import WorkFlow from './components/Flow';
-import { Card } from 'antd';
-import { ReactFlowProvider } from '@xyflow/react';
+import React from "react";
+import WorkFlow from "./components/Flow";
+import { ReactFlowProvider } from "@xyflow/react";
 
-export default function App() { 
+export default function App() {
   return (
     <ReactFlowProvider>
-        <WorkFlow/>
+      <WorkFlow />
     </ReactFlowProvider>
-
   );
 }
