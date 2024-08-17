@@ -11,23 +11,18 @@ import {
   addEdge,
   BackgroundVariant,
   Panel,
-  NodeToolbar,
   useOnSelectionChange,
 } from "@xyflow/react";
-
 import "@xyflow/react/dist/style.css";
 import nodeTypes from "./nodes";
 import { Button, Card, Space } from "antd";
-
-const initialNodes = [
-  { id: "1", position: { x: 0, y: 0 }, data: { label: "1" }, type: "worker" },
-  { id: "2", position: { x: 0, y: 100 }, data: { label: "2" }, type: "worker" },
-];
-const initialEdges = [{ id: "e1-2", source: "1", target: "2" }];
+import { TWorkerNode } from "./nodes/types";
+import useAddWaterMarkToImages from "../hooks/apis/useAddWaterMarkToImages";
 
 export default function WorkFlow() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<TWorkerNode[]>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  //
   const [selectedNodes, setSelectedNodes] = useState([]);
   const [selectedEdges, setSelectedEdges] = useState([]);
 
